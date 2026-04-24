@@ -225,9 +225,9 @@ function Hero({ onPrimary, onSecondary }) {
         </div>
 
         <h1 className="h-hero hero-title" ref={titleRef}>
-          <span className="line"><span>{'The ultimate meaning'.split('').map((c,i)=><span key={i} className="hero-char">{c}</span>)}</span></span>
-          <span className="line"><span>{'of code is to change'.split('').map((c,i)=><span key={i} className="hero-char">{c}</span>)}</span></span>
-          <span className="line"><span>{'the '.split('').map((c,i)=><span key={i} className="hero-char">{c}</span>)}<em>{'real world'.split('').map((c,i)=><span key={i} className="hero-char">{c}</span>)}</em>{'.' .split('').map((c,i)=><span key={i} className="hero-char">{c}</span>)}</span></span>
+          <span className="line"><span>{'The ultimate meaning'.split('').map((c,i)=><span key={i} className="hero-char">{c===' '?'\u00A0':c}</span>)}</span></span>
+          <span className="line"><span>{'of code is to change'.split('').map((c,i)=><span key={i} className="hero-char">{c===' '?'\u00A0':c}</span>)}</span></span>
+          <span className="line"><span>{'the '.split('').map((c,i)=><span key={i} className="hero-char">{c===' '?'\u00A0':c}</span>)}<em>{'real world'.split('').map((c,i)=><span key={i} className="hero-char">{c===' '?'\u00A0':c}</span>)}</em>{'.' .split('').map((c,i)=><span key={i} className="hero-char">{c}</span>)}</span></span>
         </h1>
 
         <p className="hero-sub reveal">
