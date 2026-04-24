@@ -2,9 +2,21 @@
 
 const { useState: useS, useMemo: useM, useRef: useR, useEffect: useE } = React;
 
+// ─── Shared helpers ───────────────────────────────────────────────────────────
+const _seededRand = (seed) => {
+  let s = seed | 0;
+  return () => { s = (s * 1664525 + 1013904223) | 0; return (s >>> 0) / 4294967296; };
+};
+function _jobHash(id) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return h >>> 0;
+}
+
 // ═══════════════════════════════ Hero ═══════════════════════════════
 function Hero({ onPrimary, onSecondary }) {
   const titleRef = useR(null);
+  const canvasRef = useR(null);
 
   useE(() => {
     const title = titleRef.current;
@@ -13,8 +25,15 @@ function Hero({ onPrimary, onSecondary }) {
     const canvas = document.createElement("canvas");
     canvas.className = "hero-title-canvas";
     title.appendChild(canvas);
+    canvasRef.current = canvas;
 
     const rect = title.getBoundingClientRect();
+    const lineEls = Array.from(title.querySelectorAll(".line"));
+    const lineRects = lineEls.map(l => {
+      const lr = l.getBoundingClientRect();
+      return { top: lr.top - rect.top, height: lr.height };
+    });
+
     const dpr = window.devicePixelRatio || 1;
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
@@ -23,57 +42,173 @@ function Hero({ onPrimary, onSecondary }) {
 
     const ctx = canvas.getContext("2d");
     ctx.scale(dpr, dpr);
-
-    const W = rect.width;
-    const H = rect.height;
-    const DURATION = 1400;
-    const LINE_H = 3;
-    const GLOW_H = 60;
+    const W = rect.width, H = rect.height;
 
     ctx.fillStyle = "#09090B";
     ctx.fillRect(0, 0, W, H);
 
-    let startTime = null;
-    let raf;
+    const LINE_DUR = 480, LINE_GAP = 90;
+    const TOTAL = lineRects.length * (LINE_DUR + LINE_GAP);
+    const particles = [];
+    let startTime = null, raf;
 
     const tick = (ts) => {
       if (!startTime) startTime = ts;
       const elapsed = ts - startTime;
-      const progress = Math.min(elapsed / DURATION, 1);
-      const y = progress * H;
 
-      ctx.clearRect(0, 0, W, y - LINE_H);
+      ctx.clearRect(0, 0, W, H);
       ctx.fillStyle = "#09090B";
-      ctx.fillRect(0, y + LINE_H, W, H);
+      ctx.fillRect(0, 0, W, H);
 
-      const grad = ctx.createLinearGradient(0, y - GLOW_H, 0, y + LINE_H + 8);
-      grad.addColorStop(0, "rgba(2,185,128,0)");
-      grad.addColorStop(0.6, "rgba(2,185,128,0.08)");
-      grad.addColorStop(0.85, "rgba(2,185,128,0.35)");
-      grad.addColorStop(1, "rgba(2,185,128,0.9)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, y - GLOW_H, W, GLOW_H + LINE_H + 8);
+      lineRects.forEach((lr, li) => {
+        const lineStart = li * (LINE_DUR + LINE_GAP);
+        const lElapsed = Math.max(0, elapsed - lineStart);
+        const p = Math.min(lElapsed / LINE_DUR, 1);
+        if (p <= 0) return;
 
-      ctx.fillStyle = "rgba(2,185,128,0.95)";
-      ctx.fillRect(0, y, W, LINE_H);
+        const cutX = p * W;
+        const { top, height: lh } = lr;
 
-      if (progress < 1) {
+        ctx.clearRect(0, top, cutX, lh);
+
+        if (p < 1) {
+          ctx.fillStyle = "#09090B";
+          ctx.fillRect(cutX, top, W - cutX, lh);
+
+          const tg = ctx.createLinearGradient(Math.max(0, cutX - 100), 0, cutX, 0);
+          tg.addColorStop(0, "rgba(2,185,128,0)");
+          tg.addColorStop(1, "rgba(2,185,128,0.18)");
+          ctx.fillStyle = tg;
+          ctx.fillRect(Math.max(0, cutX - 100), top, Math.min(100, cutX), lh);
+
+          const hg = ctx.createLinearGradient(0, top, 0, top + lh);
+          hg.addColorStop(0,   "rgba(200,255,230,0.7)");
+          hg.addColorStop(0.35,"rgba(2,185,128,1)");
+          hg.addColorStop(0.65,"rgba(2,185,128,1)");
+          hg.addColorStop(1,   "rgba(200,255,230,0.5)");
+          ctx.fillStyle = hg;
+          ctx.fillRect(cutX - 2, top, 4, lh);
+
+          ctx.fillStyle = "rgba(2,185,128,0.35)";
+          ctx.fillRect(cutX - 7, top, 5, lh);
+          ctx.fillStyle = "rgba(2,185,128,0.12)";
+          ctx.fillRect(cutX - 16, top, 9, lh);
+
+          if (Math.random() < 0.55) {
+            particles.push({
+              x: cutX, y: top + Math.random() * lh,
+              vx: Math.random() * 3.5 + 0.5, vy: (Math.random() - 0.5) * 3,
+              life: 0.85 + Math.random() * 0.3, r: Math.random() * 1.4 + 0.4,
+            });
+          }
+        }
+      });
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const sp = particles[i];
+        sp.x += sp.vx; sp.y += sp.vy; sp.vy += 0.07; sp.life -= 0.045;
+        if (sp.life <= 0) { particles.splice(i, 1); continue; }
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(2,185,128,${Math.min(sp.life, 0.9).toFixed(2)})`;
+        ctx.fill();
+      }
+
+      if (elapsed < TOTAL + 600 || particles.length > 0) {
         raf = requestAnimationFrame(tick);
       } else {
         ctx.clearRect(0, 0, W, H);
         title.classList.add("scan-done");
-        canvas.style.transition = "opacity .4s";
+        canvas.style.transition = "opacity .5s";
         canvas.style.opacity = "0";
-        setTimeout(() => canvas.remove(), 500);
+        setTimeout(() => canvas.remove(), 600);
       }
     };
 
-    const timer = setTimeout(() => { raf = requestAnimationFrame(tick); }, 200);
-
+    const timer = setTimeout(() => { raf = requestAnimationFrame(tick); }, 250);
     return () => {
       clearTimeout(timer);
       cancelAnimationFrame(raf);
       if (canvas.parentNode) canvas.remove();
+    };
+  }, []);
+
+  // ── Hero title wave effect: gaussian hill follows mouse X ──
+  useE(() => {
+    const title = titleRef.current;
+    if (!title) return;
+
+    let cxCache = null;
+    let mouseX = -9999;
+    let raf2 = null;
+
+    const AMPLITUDE = 26;
+    const SIGMA     = 190;
+    const WAVE_K    = 0.018;
+
+    const getSpans = () => Array.from(title.querySelectorAll('.hero-char'));
+
+    const cacheX = () => {
+      const rect = title.getBoundingClientRect();
+      cxCache = getSpans().map(s => {
+        const r = s.getBoundingClientRect();
+        return r.left + r.width * 0.5 - rect.left;
+      });
+    };
+
+    let dispY = [], velY = [];
+    const initTimer = setTimeout(() => {
+      cacheX();
+      const n = getSpans().length;
+      dispY = new Array(n).fill(0);
+      velY  = new Array(n).fill(0);
+    }, 350);
+
+    const animate = () => {
+      const spans = getSpans();
+      if (!cxCache || spans.length !== dispY.length) { raf2 = requestAnimationFrame(animate); return; }
+
+      let anyActive = false;
+      spans.forEach((span, i) => {
+        const dx = cxCache[i] - mouseX;
+        const target = mouseX > -9000
+          ? -AMPLITUDE * Math.exp(-(dx * dx) / (2 * SIGMA * SIGMA)) * Math.cos(dx * WAVE_K)
+          : 0;
+
+        velY[i] = velY[i] * 0.80 + (target - dispY[i]) * 0.14;
+        dispY[i] += velY[i];
+
+        if (Math.abs(dispY[i]) > 0.08 || Math.abs(velY[i]) > 0.02) {
+          anyActive = true;
+          span.style.transform = `translateY(${dispY[i].toFixed(1)}px)`;
+        } else {
+          dispY[i] = 0; velY[i] = 0;
+          span.style.transform = '';
+        }
+      });
+
+      if (anyActive || mouseX > -9000) raf2 = requestAnimationFrame(animate);
+      else raf2 = null;
+    };
+
+    const onMove = e => {
+      const r = title.getBoundingClientRect();
+      mouseX = e.clientX - r.left;
+      if (!raf2) raf2 = requestAnimationFrame(animate);
+    };
+    const onLeave = () => { mouseX = -9999; };
+    const onResize = () => setTimeout(cacheX, 80);
+
+    title.addEventListener('mousemove', onMove);
+    title.addEventListener('mouseleave', onLeave);
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      clearTimeout(initTimer);
+      cancelAnimationFrame(raf2);
+      title.removeEventListener('mousemove', onMove);
+      title.removeEventListener('mouseleave', onLeave);
+      window.removeEventListener('resize', onResize);
     };
   }, []);
 
@@ -90,9 +225,9 @@ function Hero({ onPrimary, onSecondary }) {
         </div>
 
         <h1 className="h-hero hero-title" ref={titleRef}>
-          <span className="line"><span>The ultimate meaning</span></span>
-          <span className="line"><span>of code is to change</span></span>
-          <span className="line"><span>the <em>real world</em>.</span></span>
+          <span className="line"><span>{'The ultimate meaning'.split('').map((c,i)=><span key={i} className="hero-char">{c}</span>)}</span></span>
+          <span className="line"><span>{'of code is to change'.split('').map((c,i)=><span key={i} className="hero-char">{c}</span>)}</span></span>
+          <span className="line"><span>{'the '.split('').map((c,i)=><span key={i} className="hero-char">{c}</span>)}<em>{'real world'.split('').map((c,i)=><span key={i} className="hero-char">{c}</span>)}</em>{'.' .split('').map((c,i)=><span key={i} className="hero-char">{c}</span>)}</span></span>
         </h1>
 
         <p className="hero-sub reveal">
@@ -111,7 +246,7 @@ function Hero({ onPrimary, onSecondary }) {
         </div>
 
         <div className="hero-meta">
-          <OdometerStat value="37,000" suffix="+" label="Factories Served" duration={1800} delay={0} />
+          <OdometerStat value="40,000" suffix="+" label="Factories Served" duration={1800} delay={0} />
           <OdometerStat value="52.7" suffix="%" label="SaaS MES Market Share" duration={1600} delay={120} />
           <div className="cell reveal d-3">
             <div className="k">Founded</div>
@@ -153,7 +288,7 @@ function About() {
 
           <div>
             <p className="lead drop">
-              We started with a smartphone and a piece of cloud code, doing something quite "dumb" — walking into workshops, eating and living alongside workers, running every scheduling algorithm on actual production lines. It's not that factories didn't want data — it's that data had never been collected before. Blacklake uses a SaaS model to drastically reduce deployment time and cost, holding <b style={{ color: "var(--fg)" }}>52.7% market share</b> as China's #1 SaaS MES, serving <b style={{ color: "var(--fg)" }}>37,000+ factories</b>. Tesla's supply chain, GAC Group, Nongfu Spring, China Resources, Mixue, and tens of thousands of SME manufacturers together form the full landscape of Chinese manufacturing we serve.
+              We started with a smartphone and a piece of cloud code, doing something quite "dumb" — walking into workshops, eating and living alongside workers, running every scheduling algorithm on actual production lines. It's not that factories didn't want data — it's that data had never been collected before. Blacklake uses a SaaS model to drastically reduce deployment time and cost, holding <b style={{ color: "var(--fg)" }}>52.7% market share</b> as China's #1 SaaS MES, serving <b style={{ color: "var(--fg)" }}>40,000+ factories</b>.
             </p>
           </div>
         </div>
@@ -247,7 +382,87 @@ function WhyJoin() {
   );
 }
 
+// ─── JobSparkline ─────────────────────────────────────────────────────────────
+function JobSparkline({ job }) {
+  const rand = _seededRand(_jobHash(job.id));
+  const pts = Array.from({ length: 8 }, rand);
+  const SW = 56, SH = 22;
+  const step = SW / (pts.length - 1);
+  const d = pts.map((v, i) => `${i === 0 ? "M" : "L"}${(i * step).toFixed(1)},${(SH - v * SH * 0.75 - 2).toFixed(1)}`).join(" ");
+  return (
+    <svg width={SW} height={SH} viewBox={`0 0 ${SW} ${SH}`} className="job-sparkline">
+      <path d={d} fill="none" stroke="var(--green)" strokeWidth="1.2" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // ═══════════════════════════════ Jobs ═══════════════════════════════
+function JobRow({ j, idx, onOpen }) {
+  const ref = useR(null);
+
+  useE(() => {
+    const el = ref.current;
+    if (!el) return;
+    let rafId;
+    const onMove = (e) => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const r = el.getBoundingClientRect();
+        const mx = ((e.clientX - r.left) / r.width - 0.5);
+        const my = ((e.clientY - r.top) / r.height - 0.5);
+        el.style.setProperty('--mx', mx.toFixed(3));
+        el.style.setProperty('--my', my.toFixed(3));
+        el.style.transform = `perspective(1000px) rotateY(${(mx * 6).toFixed(2)}deg) rotateX(${(-my * 3.5).toFixed(2)}deg) translateZ(8px)`;
+      });
+    };
+    const onLeave = () => {
+      cancelAnimationFrame(rafId);
+      el.style.setProperty('--mx', '0');
+      el.style.setProperty('--my', '0');
+      el.style.transform = '';
+    };
+    el.addEventListener('mousemove', onMove);
+    el.addEventListener('mouseleave', onLeave);
+    return () => {
+      cancelAnimationFrame(rafId);
+      el.removeEventListener('mousemove', onMove);
+      el.removeEventListener('mouseleave', onLeave);
+    };
+  }, []);
+
+  const urgency = 55 + (_jobHash(j.id) % 40);
+  const days = 1 + (_jobHash(j.id + 't') % 12);
+  const tsLabel = days < 7 ? `${days}d ago` : `${Math.ceil(days / 7)}w ago`;
+
+  return (
+    <div ref={ref} className="job" onClick={() => onOpen(j)}>
+      <div className="job-status">
+        <span className="job-pulse-wrap">
+          <span className="job-pulse-ring" />
+          <span className="job-pulse-dot" />
+        </span>
+        <span className="job-num">{String(idx + 1).padStart(2, '00')}</span>
+      </div>
+      <div>
+        <div className="job-title">{j.title}</div>
+        <div className="job-level">{j.level} · {j.type}</div>
+      </div>
+      <div className="job-urgency-col">
+        <div className="job-team">{j.team}</div>
+        <div className="job-urgency-bar">
+          <div className="job-urgency-fill" style={{ width: `${urgency}%`, boxShadow: urgency >= 80 ? '0 0 8px var(--green-glow)' : 'none' }} />
+        </div>
+        <div className="job-urgency-label">{urgency >= 80 ? 'Urgent' : 'Hiring'}</div>
+      </div>
+      <div className="job-loc-col">
+        <div className="job-loc"><span className="loc-dot" />{j.loc}</div>
+        <div className="job-ts">{tsLabel}</div>
+      </div>
+      <div className="job-arrow"><Arrow /></div>
+    </div>
+  );
+}
+
 function Jobs({ onOpen }) {
   const [cat, setCat] = useS("All");
   const [loc, setLoc] = useS("All Cities");
@@ -298,19 +513,7 @@ function Jobs({ onOpen }) {
 
         <div className="jobs-list reveal d-2">
           {filtered.map((j, i) => (
-            <div key={j.id} className="job" onClick={() => onOpen(j)}>
-              <div className="job-num">{String(i + 1).padStart(2, "0")}</div>
-              <div>
-                <div className="job-title">{j.title}</div>
-                <div className="job-level">{j.level} · {j.type}</div>
-              </div>
-              <div className="job-team">{j.team}</div>
-              <div className="job-loc">
-                <span className="loc-dot" />
-                {j.loc}
-              </div>
-              <div className="job-arrow"><Arrow /></div>
-            </div>
+            <JobRow key={j.id} j={j} idx={i} onOpen={onOpen} />
           ))}
           {filtered.length === 0 && (
             <div style={{ padding: "60px 0", textAlign: "center", color: "var(--fg-3)", fontFamily: "var(--serif)", fontSize: 20 }}>
@@ -329,11 +532,93 @@ function Jobs({ onOpen }) {
 }
 
 // ═══════════════════════════════ Stories ═══════════════════════════════
-function Stories() {
-  const gridRef = useR(null);
-  useTiltEffect(gridRef);
+const STORY_COLORS_EN = {
+  'Commercial':      '#F1783C',
+  'Marketing':       '#3794E9',
+  'Sales':           '#EE5B54',
+  'AI Manufacturing':'#02B980',
+  'AI':              '#00B9BE',
+  'Overseas':        '#D4A857',
+};
+
+const STORY_HL_EN = [
+  ["I can't find a reason to leave"],
+  ["genuinely eccentric"],
+  ["soaked through, still out there hustling"],
+  ["gave up my Shanghai apartment", "packing with workers"],
+  ["forming a second round of learning"],
+  ["she's gained weight"],
+];
+
+function buildQuoteSpans(text, hls) {
+  const n = text.length;
+  const inHL = new Array(n).fill(-1);
+  (hls || []).forEach((phrase, pi) => {
+    const idx = text.indexOf(phrase);
+    if (idx !== -1) for (let k = idx; k < idx + phrase.length; k++) inHL[k] = pi;
+  });
+
+  const result = [];
+  let ci = 0;
+  let i = 0;
+  while (i < n) {
+    if (inHL[i] !== -1) {
+      const hlId = inHL[i];
+      let j = i;
+      while (j < n && inHL[j] === hlId) j++;
+      const hlDelay = (ci * 28 + 420) + 'ms';
+      result.push(
+        <span key={`hl-${i}`} className="hl-phrase" style={{ '--hl-delay': hlDelay }}>
+          {text.slice(i, j).split('').map((c, k) => (
+            <span key={k} className="story-quote-char" style={{ animationDelay: `${(ci + k) * 28}ms` }}>{c}</span>
+          ))}
+        </span>
+      );
+      ci += j - i; i = j;
+    } else {
+      result.push(
+        <span key={`c-${i}`} className="story-quote-char" style={{ animationDelay: `${ci * 28}ms` }}>{text[i]}</span>
+      );
+      ci++; i++;
+    }
+  }
+  return result;
+}
+
+function StoryCard({ s, storyIdx, color }) {
+  const cardRef = useR(null);
+  const [revealed, setRevealed] = useS(false);
+
+  useE(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setRevealed(true); io.disconnect(); }
+    }, { threshold: 0.12 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const spans = buildQuoteSpans(s.quote, STORY_HL_EN[storyIdx]);
+
   return (
-    <section className="section stories-section" id="stories">
+    <article ref={cardRef} className={`story${revealed ? ' revealed' : ''}`}>
+      <span className="story-tag" style={{ color, borderColor: color + '55', background: color + '18' }}>{s.team}</span>
+      <blockquote className="story-quote">"{spans}"</blockquote>
+      <div className="story-foot">
+        <div className="story-avatar"><AvatarSVG seed={storyIdx + 1} /></div>
+        <div>
+          <div className="story-name">{s.fullName || s.name}</div>
+          <div className="story-role">{s.role}</div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function Stories() {
+  return (
+    <section className="stories-section section" id="stories">
       <div className="wrap">
         <div className="sec-head reveal">
           <div>
@@ -344,21 +629,9 @@ function Stories() {
             <p className="sub">Six first-person accounts from different teams. No polish, kept as close to the original as possible.</p>
           </div>
         </div>
-
-        <div className="stories" ref={gridRef}>
+        <div className="stories">
           {STORIES.map((s, i) => (
-            <article key={i} className="story reveal" style={{ transitionDelay: `${i * 70}ms` }}>
-              <div className="story-glare" />
-              <div className="story-tag">{s.team}</div>
-              <blockquote className="story-quote">"{s.quote}"</blockquote>
-              <div className="story-foot">
-                <div className="story-avatar"><AvatarSVG seed={i + 1} /></div>
-                <div>
-                  <div className="story-name">{s.fullName || s.name}</div>
-                  <div className="story-role">{s.role}</div>
-                </div>
-              </div>
-            </article>
+            <StoryCard key={i} s={s} storyIdx={i} color={STORY_COLORS_EN[s.team] || 'var(--green)'} />
           ))}
         </div>
       </div>
@@ -600,34 +873,34 @@ function Footer() {
 
 // ═══════════════════════════════ OEE Mini-game (Easter Egg) ═══════════════════════════════
 const OEE_CAT_EN = {
-  assembly: { label: 'Assembly', color: '#E8A828' },
-  ai:       { label: 'AI · Data', color: '#F0C050' },
-  quality:  { label: 'Quality',  color: '#C86420' },
+  assembly: { label: 'Assembly',  color: '#02B980' },
+  ai:       { label: 'AI · Data', color: '#40D898' },
+  quality:  { label: 'Quality',   color: '#028A5A' },
 };
 const OEE_MACH_DEF_EN = [
-  { name: 'Line A',      pref: 'assembly', ok: 'ai',       bad: 'quality' },
-  { name: 'Line B',      pref: 'ai',       ok: 'assembly', bad: 'quality' },
-  { name: 'QC Station',  pref: 'quality',  ok: 'ai',       bad: 'assembly' },
+  { name: 'Line A',     pref: 'assembly', ok: 'ai',       bad: 'quality' },
+  { name: 'Line B',     pref: 'ai',       ok: 'assembly', bad: 'quality' },
+  { name: 'QC Station', pref: 'quality',  ok: 'ai',       bad: 'assembly' },
 ];
 const OEE_JOBS_DEF_EN = [
-  { name: 'Changeover Optimization',  dur: 8,  u: 1, cat: 'assembly' },
-  { name: 'Gantt Schedule Refresh',   dur: 5,  u: 0, cat: 'assembly' },
-  { name: 'Work Order Board Update',  dur: 7,  u: 1, cat: 'assembly' },
-  { name: 'MES Schedule Push',        dur: 10, u: 0, cat: 'assembly' },
-  { name: 'Shift Report Summary',     dur: 6,  u: 1, cat: 'assembly' },
-  { name: 'Equipment Param Sync',     dur: 9,  u: 0, cat: 'assembly' },
-  { name: 'AI Vision Calibration',    dur: 9,  u: 1, cat: 'ai'       },
-  { name: 'Capacity Forecast Model',  dur: 12, u: 0, cat: 'ai'       },
-  { name: 'Inventory Alert Analysis', dur: 10, u: 1, cat: 'ai'       },
-  { name: 'Scheduling Algorithm Train',dur:13, u: 0, cat: 'ai'       },
-  { name: 'Anomaly Detection Model',  dur: 8,  u: 1, cat: 'ai'       },
-  { name: 'Data Sync Push',           dur: 6,  u: 0, cat: 'ai'       },
-  { name: 'Quality Report Generate',  dur: 8,  u: 0, cat: 'quality'  },
-  { name: 'SPC Control Chart Update', dur: 7,  u: 1, cat: 'quality'  },
-  { name: 'Equipment OEE Calc',       dur: 9,  u: 0, cat: 'quality'  },
-  { name: 'Defect Traceability',      dur: 11, u: 1, cat: 'quality'  },
-  { name: 'Supplier QC Audit',        dur: 12, u: 0, cat: 'quality'  },
-  { name: 'First-Pass Yield Stats',   dur: 6,  u: 1, cat: 'quality'  },
+  { name: 'Changeover Optimization',   dur: 8,  u: 1, cat: 'assembly' },
+  { name: 'Gantt Schedule Refresh',    dur: 5,  u: 0, cat: 'assembly' },
+  { name: 'Work Order Board Update',   dur: 7,  u: 1, cat: 'assembly' },
+  { name: 'MES Schedule Push',         dur: 10, u: 0, cat: 'assembly' },
+  { name: 'Shift Report Summary',      dur: 6,  u: 1, cat: 'assembly' },
+  { name: 'Equipment Param Sync',      dur: 9,  u: 0, cat: 'assembly' },
+  { name: 'AI Vision Calibration',     dur: 9,  u: 1, cat: 'ai'       },
+  { name: 'Capacity Forecast Model',   dur: 12, u: 0, cat: 'ai'       },
+  { name: 'Inventory Alert Analysis',  dur: 10, u: 1, cat: 'ai'       },
+  { name: 'Scheduling Algorithm Train',dur: 13, u: 0, cat: 'ai'       },
+  { name: 'Anomaly Detection Model',   dur: 8,  u: 1, cat: 'ai'       },
+  { name: 'Data Sync Push',            dur: 6,  u: 0, cat: 'ai'       },
+  { name: 'Quality Report Generate',   dur: 8,  u: 0, cat: 'quality'  },
+  { name: 'SPC Control Chart Update',  dur: 7,  u: 1, cat: 'quality'  },
+  { name: 'Equipment OEE Calc',        dur: 9,  u: 0, cat: 'quality'  },
+  { name: 'Defect Traceability',       dur: 11, u: 1, cat: 'quality'  },
+  { name: 'Supplier QC Audit',         dur: 12, u: 0, cat: 'quality'  },
+  { name: 'First-Pass Yield Stats',    dur: 6,  u: 1, cat: 'quality'  },
 ];
 const OEE_MATCH_EN = {
   perfect: { mul: 1.0, pts: 3, label: 'Perfect',  color: '#02B980' },
@@ -666,11 +939,13 @@ function OEEGame() {
     setStats({ done: 0, missed: 0, total: 0, pts: 0, maxPts: 0 });
     setMachines(OEE_MACH_DEF_EN.map((d, i) => ({ ...d, i, job: null, progress: 0 })));
   }
+
   useE(() => {
     if (!active || ended) return;
     const t = setInterval(() => setTimeLeft(v => { if (v <= 1) { setEnded(true); return 0; } return v - 1; }), 1000);
     return () => clearInterval(t);
   }, [active, ended]);
+
   useE(() => {
     if (!active || ended) return;
     const spawn = () => {
@@ -683,6 +958,7 @@ function OEEGame() {
     const t = setInterval(spawn, OEE_SPAWN_MS_EN);
     return () => clearInterval(t);
   }, [active, ended]);
+
   useE(() => {
     if (!active || ended) return;
     const t = setInterval(() => {
@@ -715,15 +991,19 @@ function OEEGame() {
   return (
     <div className="oee-overlay" onClick={e => e.target === e.currentTarget && setActive(false)}>
       <div className="oee-modal">
+
+        {/* Header */}
         <div className="oee-head">
           <div className="oee-title"><span className="oee-logo-dot" /><span>DISPATCH · SYS</span><span className="oee-badge">● ONLINE</span></div>
           <div className="oee-legend">
             {Object.entries(OEE_CAT_EN).map(([k, v]) => (
-              <span key={k} className="oee-legend-item"><span className="oee-legend-dot" style={{ background: v.color }} />{v.label}</span>
+              <span key={k} className="oee-legend-item">
+                <span className="oee-legend-dot" style={{ background: v.color }} />{v.label}
+              </span>
             ))}
           </div>
           <div className="oee-timer-wrap">
-            <div className="oee-timer-bar"><div className="oee-timer-fill" style={{ width: `${timerPct}%`, background: timeLeft < 15 ? '#C03010' : '#02B980', color: timeLeft < 15 ? '#C03010' : '#02B980' }} /></div>
+            <div className="oee-timer-bar"><div className="oee-timer-fill" style={{ width: `${timerPct}%`, background: timeLeft < 15 ? '#C03010' : '#02B980' }} /></div>
             <span className="oee-timer-num" style={{ color: timeLeft < 15 ? '#C03010' : '#02B980' }}>{timeLeft}s</span>
           </div>
           <button className="oee-close" onClick={() => setActive(false)}>×</button>
@@ -739,6 +1019,8 @@ function OEEGame() {
           </div>
         ) : (
           <div className="oee-body">
+
+            {/* Job queue */}
             <div className="oee-queue">
               <div className="oee-col-label">INCOMING <span style={{ color: '#3A1A06' }}>{queue.length}/{OEE_MAX_Q_EN}</span></div>
               {queue.length === 0 && <div className="oee-empty">AWAITING INPUT...</div>}
@@ -763,6 +1045,8 @@ function OEEGame() {
                 );
               })}
             </div>
+
+            {/* Machines */}
             <div className="oee-machines">
               <div className="oee-col-label">WORK CELLS</div>
               <div className="oee-machine-grid">
@@ -777,14 +1061,18 @@ function OEEGame() {
                     <div key={m.name}
                       className={`oee-machine${m.job ? ' busy' : ' idle'}${droppable ? ' droppable' : ''}`}
                       style={droppable ? { borderColor: matchCfg.color + (isHov ? 'ff' : '88'), background: matchCfg.color + '0f' } : {}}
-                      onClick={() => assign(i)} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
+                      onClick={() => assign(i)}
+                      onMouseEnter={() => setHovered(i)}
+                      onMouseLeave={() => setHovered(null)}>
                       <div className="oee-mach-head">
                         <span className="oee-mach-name">{m.name}</span>
                         <span className="oee-mach-spec" style={{ color: specCfg.color, borderColor: specCfg.color + '44', background: specCfg.color + '18' }}>{specCfg.label}</span>
                       </div>
                       {m.job ? (
                         <>
-                          <div className="oee-mach-job"><span className="oee-cat-dot" style={{ background: OEE_CAT_EN[m.job.cat]?.color }} />{m.job.name}</div>
+                          <div className="oee-mach-job">
+                            <span className="oee-cat-dot" style={{ background: OEE_CAT_EN[m.job.cat]?.color }} />{m.job.name}
+                          </div>
                           <div className="oee-mach-match" style={{ color: OEE_MATCH_EN[m.job.match].color }}>{OEE_MATCH_EN[m.job.match].label} +{m.job.pts}pt</div>
                           <div className="oee-progress-bar"><div className="oee-progress-fill" style={{ width: `${m.progress * 100}%`, background: OEE_MATCH_EN[m.job.match].color }} /></div>
                         </>
