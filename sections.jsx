@@ -24,7 +24,7 @@ function HeroTerminal() {
     const hero = document.querySelector('.hero');
     const body = bodyRef.current;
     if (!hero || !body) return;
-    const BY = 18, BX = -6;
+    const BY = -18, BX = -6;
     let ry = BY, rx = BX, vry = 0, vrx = 0, tRy = BY, tRx = BX, raf = null;
     const step = () => {
       vry = vry * 0.80 + (tRy - ry) * 0.14;
@@ -160,7 +160,7 @@ function HeroTerminal() {
             </div>
             <span className="ht-power-led" />
           </div>
-          <div className="ht-left" />
+          <div className="ht-right" />
           <div className="ht-bottom" />
         </div>
       </div>

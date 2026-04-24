@@ -1059,7 +1059,7 @@ em,.italic{font-style:italic;font-family:var(--serif)}
     gap:48px;
   }
 }
-.hero-terminal-col{display:flex;align-items:center;justify-content:center;}
+.hero-terminal-col{display:flex;align-items:center;justify-content:center;margin-top:-60px;}
 @media (max-width:1099px){.hero-terminal-col{display:none;}}
 
 /* ============ Hero Terminal ============ */
@@ -1073,7 +1073,7 @@ em,.italic{font-style:italic;font-family:var(--serif)}
 }
 .hero-terminal-body{
   transform-style:preserve-3d;
-  transform:rotateY(18deg) rotateX(-6deg);
+  transform:rotateY(-18deg) rotateX(-6deg);
   will-change:transform;
   position:relative;
   width:340px;
@@ -1094,15 +1094,15 @@ em,.italic{font-style:italic;font-family:var(--serif)}
   display:flex;
   flex-direction:column;
 }
-/* Left thick side */
-.ht-left{
-  position:absolute;left:0;top:10px;bottom:10px;
+/* Right thick side */
+.ht-right{
+  position:absolute;right:0;top:10px;bottom:10px;
   width:58px;
-  background:linear-gradient(to right,#0d0d10,#161618);
-  border-radius:6px 0 0 4px;
-  transform-origin:0% 50%;
-  transform:rotateY(90deg);
-  box-shadow:inset -3px 0 8px rgba(0,0,0,0.7);
+  background:linear-gradient(to left,#0d0d10,#161618);
+  border-radius:0 6px 4px 0;
+  transform-origin:100% 50%;
+  transform:rotateY(-90deg);
+  box-shadow:inset 3px 0 8px rgba(0,0,0,0.7);
 }
 /* Bottom */
 .ht-bottom{
