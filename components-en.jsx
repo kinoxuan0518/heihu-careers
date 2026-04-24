@@ -214,15 +214,34 @@ function usePerkRipple(ref) {
   useEffect(() => {
     const grid = ref.current;
     if (!grid) return;
-    const onEnter = e => {
+    let rafId;
+    const onMove = e => {
       const card = e.target.closest(".perk");
       if (!card) return;
       const r = card.getBoundingClientRect();
-      card.style.setProperty("--ox", `${((e.clientX - r.left) / r.width * 100).toFixed(0)}%`);
-      card.style.setProperty("--oy", `${((e.clientY - r.top) / r.height * 100).toFixed(0)}%`);
+      const rx = (e.clientX - r.left) / r.width;
+      const ry = (e.clientY - r.top)  / r.height;
+      card.style.setProperty("--ox", `${(rx * 100).toFixed(0)}%`);
+      card.style.setProperty("--oy", `${(ry * 100).toFixed(0)}%`);
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const mx = rx - 0.5, my = ry - 0.5;
+        card.style.transform = `perspective(900px) rotateY(${(mx * 9).toFixed(2)}deg) rotateX(${(-my * 6).toFixed(2)}deg) translateZ(8px)`;
+      });
     };
-    grid.addEventListener("mouseover", onEnter);
-    return () => grid.removeEventListener("mouseover", onEnter);
+    const onOut = e => {
+      const card = e.target.closest(".perk");
+      if (!card || card.contains(e.relatedTarget)) return;
+      cancelAnimationFrame(rafId);
+      card.style.transform = '';
+    };
+    grid.addEventListener("mousemove", onMove);
+    grid.addEventListener("mouseout", onOut);
+    return () => {
+      cancelAnimationFrame(rafId);
+      grid.removeEventListener("mousemove", onMove);
+      grid.removeEventListener("mouseout", onOut);
+    };
   }, []);
 }
 
@@ -320,9 +339,26 @@ function LiquidHeading({ children, className }) {
     };
   }, []);
 
+  // ── Scroll-in: chars blur-fade up on viewport entry ──
+  useEffect(() => {
+    const el = elRef.current;
+    if (!el) return;
+    const spans = Array.from(el.querySelectorAll('.bm-char'));
+    spans.forEach((s, i) => s.style.setProperty('--ci', i));
+    el.classList.add('lh-pending');
+    const io = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      el.classList.remove('lh-pending');
+      el.classList.add('lh-revealed');
+      io.disconnect();
+    }, { threshold: 0.15 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   const items = flattenChildren(children);
   return (
-    <h2 className={className}>
+    <h2 ref={elRef} className={className}>
       {items.map((item, i) => (
         <span key={i} className={`bm-char${item.cls ? " " + item.cls : ""}`}>{item.char}</span>
       ))}

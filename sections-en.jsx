@@ -148,12 +148,6 @@ function About() {
               <div style={{ fontFamily: "var(--serif)", fontSize: 17, lineHeight: 1.55, letterSpacing: "-0.01em", color: "var(--fg-2)" }}>
                 China has millions of small and medium factories. They are the capillaries of manufacturing — supporting countless jobs and the last mile of supply chains — yet they are almost entirely silent.
               </div>
-              <div style={{ marginTop: 18, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <span className="chip">MES</span>
-                <span className="chip">Intelligent Scheduling</span>
-                <span className="chip">Quality Analytics</span>
-                <span className="chip">Shop Floor Collaboration</span>
-              </div>
             </div>
           </aside>
 
@@ -185,6 +179,41 @@ function ClientsStrip() {
   );
 }
 
+// ─── BigMark scroll-reveal ───────────────────────────────────────────────────
+function BigMarkReveal() {
+  const ref = useR(null);
+  const [prog, setProg] = useS(0);
+  useE(() => {
+    const update = () => {
+      const el = ref.current; if (!el) return;
+      const r = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const p = (vh * 0.85 - r.top) / (r.height + vh * 0.35);
+      setProg(Math.max(0, Math.min(1, p)));
+    };
+    window.addEventListener('scroll', update, { passive: true });
+    update();
+    return () => window.removeEventListener('scroll', update);
+  }, []);
+  const lit = (n, total) => prog >= n / total;
+  return (
+    <div ref={ref} className="bigmark">
+      <span style={{ display: 'block' }}>
+        <span className={`bm-word bm-outline${lit(1,6)?' bm-lit':''}`}>Every</span>
+        {' '}<span className={`bm-word${lit(2,6)?' bm-lit':''}`}>line of </span>
+        <span className={`bm-word bm-em${lit(2,6)?' bm-lit':''}`}>code</span>
+      </span>
+      <span style={{ display: 'block', marginTop: 8 }}>
+        <span className={`bm-word${lit(3,6)?' bm-lit':''}`}>hits a </span>
+        <span className={`bm-word bm-em${lit(4,6)?' bm-lit':''}`}>real</span>
+      </span>
+      <span style={{ display: 'block', marginTop: 8 }}>
+        <span className={`bm-word${lit(5,6)?' bm-lit':''}`}>factory floor.</span>
+      </span>
+    </div>
+  );
+}
+
 // ═══════════════════════════════ WhyJoin ═══════════════════════════════
 function WhyJoin() {
   return (
@@ -210,12 +239,8 @@ function WhyJoin() {
           ))}
         </div>
 
-        <div style={{ marginTop: 80 }} className="reveal d-2">
-          <div className="bigmark" aria-hidden="true">
-            <span className="outline">Every</span> line of <em>code</em>
-            <span style={{ display: "block", marginTop: 8 }}>hits a <em>real</em></span>
-            <span style={{ display: "block", marginTop: 8 }}>factory floor.</span>
-          </div>
+        <div style={{ marginTop: 80 }}>
+          <BigMarkReveal />
         </div>
       </div>
     </section>
@@ -573,4 +598,225 @@ function Footer() {
   );
 }
 
-Object.assign(window, { Hero, About, ClientsStrip, WhyJoin, Jobs, Stories, PlacesSection, PerksSection, Process, CTA, Footer });
+// ═══════════════════════════════ OEE Mini-game (Easter Egg) ═══════════════════════════════
+const OEE_CAT_EN = {
+  assembly: { label: 'Assembly', color: '#E8A828' },
+  ai:       { label: 'AI · Data', color: '#F0C050' },
+  quality:  { label: 'Quality',  color: '#C86420' },
+};
+const OEE_MACH_DEF_EN = [
+  { name: 'Line A',      pref: 'assembly', ok: 'ai',       bad: 'quality' },
+  { name: 'Line B',      pref: 'ai',       ok: 'assembly', bad: 'quality' },
+  { name: 'QC Station',  pref: 'quality',  ok: 'ai',       bad: 'assembly' },
+];
+const OEE_JOBS_DEF_EN = [
+  { name: 'Changeover Optimization',  dur: 8,  u: 1, cat: 'assembly' },
+  { name: 'Gantt Schedule Refresh',   dur: 5,  u: 0, cat: 'assembly' },
+  { name: 'Work Order Board Update',  dur: 7,  u: 1, cat: 'assembly' },
+  { name: 'MES Schedule Push',        dur: 10, u: 0, cat: 'assembly' },
+  { name: 'Shift Report Summary',     dur: 6,  u: 1, cat: 'assembly' },
+  { name: 'Equipment Param Sync',     dur: 9,  u: 0, cat: 'assembly' },
+  { name: 'AI Vision Calibration',    dur: 9,  u: 1, cat: 'ai'       },
+  { name: 'Capacity Forecast Model',  dur: 12, u: 0, cat: 'ai'       },
+  { name: 'Inventory Alert Analysis', dur: 10, u: 1, cat: 'ai'       },
+  { name: 'Scheduling Algorithm Train',dur:13, u: 0, cat: 'ai'       },
+  { name: 'Anomaly Detection Model',  dur: 8,  u: 1, cat: 'ai'       },
+  { name: 'Data Sync Push',           dur: 6,  u: 0, cat: 'ai'       },
+  { name: 'Quality Report Generate',  dur: 8,  u: 0, cat: 'quality'  },
+  { name: 'SPC Control Chart Update', dur: 7,  u: 1, cat: 'quality'  },
+  { name: 'Equipment OEE Calc',       dur: 9,  u: 0, cat: 'quality'  },
+  { name: 'Defect Traceability',      dur: 11, u: 1, cat: 'quality'  },
+  { name: 'Supplier QC Audit',        dur: 12, u: 0, cat: 'quality'  },
+  { name: 'First-Pass Yield Stats',   dur: 6,  u: 1, cat: 'quality'  },
+];
+const OEE_MATCH_EN = {
+  perfect: { mul: 1.0, pts: 3, label: 'Perfect',  color: '#02B980' },
+  ok:      { mul: 1.6, pts: 2, label: 'Workable', color: '#028A5A' },
+  bad:     { mul: 2.5, pts: 1, label: 'Poor Fit', color: '#7A2808' },
+};
+const OEE_EXPIRE_MS_EN = 18000, OEE_SPAWN_MS_EN = 3500, OEE_MAX_Q_EN = 8;
+let _oeeJobIdEN = 0;
+function _oeeMatchEN(mIdx, cat) {
+  const m = OEE_MACH_DEF_EN[mIdx];
+  if (m.pref === cat) return 'perfect';
+  if (m.ok   === cat) return 'ok';
+  return 'bad';
+}
+
+function OEEGame() {
+  const [active, setActive] = useS(false);
+  const [timeLeft, setTimeLeft] = useS(60);
+  const [queue, setQueue] = useS([]);
+  const [machines, setMachines] = useS(OEE_MACH_DEF_EN.map((d, i) => ({ ...d, i, job: null, progress: 0 })));
+  const [selected, setSelected] = useS(null);
+  const [hovered, setHovered] = useS(null);
+  const [now, setNow] = useS(Date.now);
+  const [stats, setStats] = useS({ done: 0, missed: 0, total: 0, pts: 0, maxPts: 0 });
+  const [ended, setEnded] = useS(false);
+
+  useE(() => {
+    const show = () => { resetGame(); setActive(true); };
+    window.addEventListener('oee-game', show);
+    return () => window.removeEventListener('oee-game', show);
+  }, []);
+
+  function resetGame() {
+    _oeeJobIdEN = 0;
+    setTimeLeft(60); setQueue([]); setSelected(null); setHovered(null); setEnded(false);
+    setStats({ done: 0, missed: 0, total: 0, pts: 0, maxPts: 0 });
+    setMachines(OEE_MACH_DEF_EN.map((d, i) => ({ ...d, i, job: null, progress: 0 })));
+  }
+  useE(() => {
+    if (!active || ended) return;
+    const t = setInterval(() => setTimeLeft(v => { if (v <= 1) { setEnded(true); return 0; } return v - 1; }), 1000);
+    return () => clearInterval(t);
+  }, [active, ended]);
+  useE(() => {
+    if (!active || ended) return;
+    const spawn = () => {
+      const tpl = OEE_JOBS_DEF_EN[Math.floor(Math.random() * OEE_JOBS_DEF_EN.length)];
+      const job = { id: ++_oeeJobIdEN, name: tpl.name, dur: tpl.dur, u: tpl.u, cat: tpl.cat, born: Date.now(), expireAt: Date.now() + OEE_EXPIRE_MS_EN };
+      setStats(s => ({ ...s, total: s.total + 1, maxPts: s.maxPts + 3 }));
+      setQueue(q => q.length >= OEE_MAX_Q_EN ? q : [...q, job]);
+    };
+    spawn();
+    const t = setInterval(spawn, OEE_SPAWN_MS_EN);
+    return () => clearInterval(t);
+  }, [active, ended]);
+  useE(() => {
+    if (!active || ended) return;
+    const t = setInterval(() => {
+      const n = Date.now(); setNow(n);
+      setQueue(q => { const gone = q.filter(j => n > j.expireAt); if (gone.length) setStats(s => ({ ...s, missed: s.missed + gone.length })); return q.filter(j => n <= j.expireAt); });
+      setMachines(ms => ms.map(m => {
+        if (!m.job) return m;
+        const p = Math.min((n - m.job.startedAt) / 1000 / m.job.effDur, 1);
+        if (p >= 1) { setStats(s => ({ ...s, done: s.done + 1, pts: s.pts + m.job.pts })); return { ...m, job: null, progress: 0 }; }
+        return { ...m, progress: p };
+      }));
+    }, 200);
+    return () => clearInterval(t);
+  }, [active, ended]);
+
+  const assign = (mIdx) => {
+    if (!selected || machines[mIdx].job) return;
+    const match = _oeeMatchEN(mIdx, selected.cat);
+    const cfg = OEE_MATCH_EN[match];
+    const job = { ...selected, startedAt: Date.now(), effDur: selected.dur * cfg.mul, match, pts: cfg.pts };
+    setMachines(ms => ms.map((m, i) => i === mIdx ? { ...m, job, progress: 0 } : m));
+    setQueue(q => q.filter(j => j.id !== selected.id));
+    setSelected(null); setHovered(null);
+  };
+
+  const oee = stats.maxPts > 0 ? Math.round(stats.pts / stats.maxPts * 1000) / 10 : 0;
+  const timerPct = timeLeft / 60 * 100;
+  if (!active) return null;
+
+  return (
+    <div className="oee-overlay" onClick={e => e.target === e.currentTarget && setActive(false)}>
+      <div className="oee-modal">
+        <div className="oee-head">
+          <div className="oee-title"><span className="oee-logo-dot" /><span>DISPATCH · SYS</span><span className="oee-badge">● ONLINE</span></div>
+          <div className="oee-legend">
+            {Object.entries(OEE_CAT_EN).map(([k, v]) => (
+              <span key={k} className="oee-legend-item"><span className="oee-legend-dot" style={{ background: v.color }} />{v.label}</span>
+            ))}
+          </div>
+          <div className="oee-timer-wrap">
+            <div className="oee-timer-bar"><div className="oee-timer-fill" style={{ width: `${timerPct}%`, background: timeLeft < 15 ? '#C03010' : '#02B980', color: timeLeft < 15 ? '#C03010' : '#02B980' }} /></div>
+            <span className="oee-timer-num" style={{ color: timeLeft < 15 ? '#C03010' : '#02B980' }}>{timeLeft}s</span>
+          </div>
+          <button className="oee-close" onClick={() => setActive(false)}>×</button>
+        </div>
+
+        {ended ? (
+          <div className="oee-end">
+            <div className="oee-end-label">MISSION COMPLETE · OEE RATING</div>
+            <div className="oee-end-score" style={{ color: oee >= 80 ? '#02B980' : oee >= 50 ? '#028A5A' : '#7A2808' }}>{oee}<span>%</span></div>
+            <div className="oee-end-sub">Score {stats.pts}/{stats.maxPts} · Done {stats.done} · Missed {stats.missed}</div>
+            <div className="oee-end-tip">{oee >= 85 ? 'Perfect scheduling! Factory at full capacity.' : oee >= 60 ? 'Good — match jobs to their preferred machines.' : 'Tip: matching job colors to machines gives 3× points.'}</div>
+            <button className="btn" onClick={resetGame}>[ RESTART ]</button>
+          </div>
+        ) : (
+          <div className="oee-body">
+            <div className="oee-queue">
+              <div className="oee-col-label">INCOMING <span style={{ color: '#3A1A06' }}>{queue.length}/{OEE_MAX_Q_EN}</span></div>
+              {queue.length === 0 && <div className="oee-empty">AWAITING INPUT...</div>}
+              {queue.map(j => {
+                const cc = OEE_CAT_EN[j.cat];
+                const expPct = Math.max(0, (j.expireAt - now) / OEE_EXPIRE_MS_EN * 100);
+                const isSel = selected?.id === j.id;
+                return (
+                  <div key={j.id} className={`oee-job${isSel ? ' selected' : ''}`}
+                    style={isSel ? { borderColor: cc.color, background: cc.color + '14' } : {}}
+                    onClick={() => setSelected(isSel ? null : j)}>
+                    <div className="oee-job-top">
+                      <span className="oee-cat-pill" style={{ color: cc.color, borderColor: cc.color + '55', background: cc.color + '18' }}>{cc.label}</span>
+                      {j.u ? <span className="oee-urgent-dot" /> : null}
+                    </div>
+                    <div className="oee-job-name">{j.name}</div>
+                    <div className="oee-job-foot">
+                      <span className="oee-job-dur">{j.dur}s</span>
+                      <div className="oee-expire-bar"><div className="oee-expire-fill" style={{ width: `${expPct}%`, background: expPct < 25 ? '#C03010' : 'rgba(2,185,128,0.4)' }} /></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="oee-machines">
+              <div className="oee-col-label">WORK CELLS</div>
+              <div className="oee-machine-grid">
+                {machines.map((m, i) => {
+                  const def = OEE_MACH_DEF_EN[i];
+                  const specCfg = OEE_CAT_EN[def.pref];
+                  const match = selected ? _oeeMatchEN(i, selected.cat) : null;
+                  const matchCfg = match ? OEE_MATCH_EN[match] : null;
+                  const droppable = selected && !m.job;
+                  const isHov = hovered === i;
+                  return (
+                    <div key={m.name}
+                      className={`oee-machine${m.job ? ' busy' : ' idle'}${droppable ? ' droppable' : ''}`}
+                      style={droppable ? { borderColor: matchCfg.color + (isHov ? 'ff' : '88'), background: matchCfg.color + '0f' } : {}}
+                      onClick={() => assign(i)} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
+                      <div className="oee-mach-head">
+                        <span className="oee-mach-name">{m.name}</span>
+                        <span className="oee-mach-spec" style={{ color: specCfg.color, borderColor: specCfg.color + '44', background: specCfg.color + '18' }}>{specCfg.label}</span>
+                      </div>
+                      {m.job ? (
+                        <>
+                          <div className="oee-mach-job"><span className="oee-cat-dot" style={{ background: OEE_CAT_EN[m.job.cat]?.color }} />{m.job.name}</div>
+                          <div className="oee-mach-match" style={{ color: OEE_MATCH_EN[m.job.match].color }}>{OEE_MATCH_EN[m.job.match].label} +{m.job.pts}pt</div>
+                          <div className="oee-progress-bar"><div className="oee-progress-fill" style={{ width: `${m.progress * 100}%`, background: OEE_MATCH_EN[m.job.match].color }} /></div>
+                        </>
+                      ) : droppable ? (
+                        <div className="oee-mach-idle" style={{ color: matchCfg.color }}>{matchCfg.label} — ASSIGN</div>
+                      ) : (
+                        <div className="oee-mach-idle">[ STANDBY ]</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {selected && (
+                <div className="oee-hint">
+                  <span className="oee-cat-dot" style={{ background: OEE_CAT_EN[selected.cat]?.color }} />
+                  Selected: <b>{selected.name}</b>
+                  <span style={{ color: '#021A0C', marginLeft: 8 }}>Perfect +3pt · Workable +2pt · Poor fit +1pt</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="oee-foot">
+          <span>Done <b style={{ color: '#02B980', textShadow: '0 0 8px rgba(2,185,128,0.55)' }}>{stats.done}</b></span>
+          <span>Missed <b style={{ color: '#7A2808' }}>{stats.missed}</b></span>
+          <span>Score <b style={{ color: '#028A5A' }}>{stats.pts}</b><span style={{ color: '#021A0C' }}>/{stats.maxPts}</span></span>
+          <span className="oee-oee">OEE <b style={{ color: oee >= 70 ? '#02B980' : oee >= 40 ? '#028A5A' : '#7A2808', textShadow: oee >= 70 ? '0 0 8px rgba(2,185,128,0.5)' : 'none' }}>{oee}%</b></span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { Hero, About, ClientsStrip, WhyJoin, Jobs, Stories, PlacesSection, PerksSection, Process, CTA, Footer, OEEGame });
