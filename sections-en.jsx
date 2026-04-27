@@ -35,8 +35,8 @@ function HeroTerminal() {
     };
     const onMove = e => {
       const r = hero.getBoundingClientRect();
-      tRy = BY + ((e.clientX - r.left) / r.width  - 0.5) * 16;
-      tRx = BX - ((e.clientY - r.top)  / r.height - 0.5) * 10;
+      tRy = BY + ((e.clientX - r.left) / r.width  - 0.5) * 28;
+      tRx = BX - ((e.clientY - r.top)  / r.height - 0.5) * 18;
       if (!raf) raf = requestAnimationFrame(step);
     };
     const onLeave = () => { tRy = BY; tRx = BX; if (!raf) raf = requestAnimationFrame(step); };
