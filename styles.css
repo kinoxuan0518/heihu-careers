@@ -1059,7 +1059,7 @@ em,.italic{font-style:italic;font-family:var(--serif)}
     gap:48px;
   }
 }
-.hero-terminal-col{display:flex;align-items:center;justify-content:center;margin-top:-180px;}
+.hero-terminal-col{display:flex;align-items:center;justify-content:center;margin-top:-300px;}
 @media (max-width:1099px){.hero-terminal-col{display:none;}}
 
 /* ============ Hero Terminal ============ */
