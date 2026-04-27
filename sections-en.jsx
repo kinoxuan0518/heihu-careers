@@ -26,8 +26,8 @@ function HeroTerminal() {
     const BY = -18, BX = -6;
     let ry = BY, rx = BX, vry = 0, vrx = 0, tRy = BY, tRx = BX, raf = null;
     const step = () => {
-      vry = vry * 0.80 + (tRy - ry) * 0.14;
-      vrx = vrx * 0.80 + (tRx - rx) * 0.14;
+      vry = vry * 0.68 + (tRy - ry) * 0.22;
+      vrx = vrx * 0.68 + (tRx - rx) * 0.22;
       ry += vry; rx += vrx;
       body.style.transform = `rotateY(${ry.toFixed(2)}deg) rotateX(${rx.toFixed(2)}deg)`;
       const done = Math.abs(ry-tRy)<0.05 && Math.abs(rx-tRx)<0.05 && Math.abs(vry)<0.02 && Math.abs(vrx)<0.02;
@@ -35,8 +35,8 @@ function HeroTerminal() {
     };
     const onMove = e => {
       const r = hero.getBoundingClientRect();
-      tRy = BY + ((e.clientX - r.left) / r.width  - 0.5) * 28;
-      tRx = BX - ((e.clientY - r.top)  / r.height - 0.5) * 18;
+      tRy = BY + ((e.clientX - r.left) / r.width  - 0.5) * 50;
+      tRx = BX - ((e.clientY - r.top)  / r.height - 0.5) * 32;
       if (!raf) raf = requestAnimationFrame(step);
     };
     const onLeave = () => { tRy = BY; tRx = BX; if (!raf) raf = requestAnimationFrame(step); };
