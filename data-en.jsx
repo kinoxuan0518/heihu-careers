@@ -63,7 +63,7 @@ const PERKS = [
   { idx: "01", t: "Field Subsidies & Travel", d: "Full reimbursement for factory trips; extra workshop allowances. The intelligence gained is never something we skimp on." },
   { idx: "02", t: "AI Budget", d: "No fixed cap. Any useful AI tool is reimbursable — we think this investment always pays off." },
   { idx: "03", t: "Equity & Long-term", d: "We believe in doing something hard and right for the long run." },
-  { idx: "04", t: "Health & Time Off", d: "Full social insurance + supplemental medical; annual check-up; family coverage; 15 days PTO increasing annually; extra benefit leave." },
+  { idx: "04", t: "Health & Time Off", d: "Full social insurance + supplemental medical; annual check-up; family coverage; PTO increasing annually; extra benefit leave." },
   { idx: "05", t: "Equipment", d: "Mac of your choice, ultrawide monitors. We'll set up your productivity tools properly." },
   { idx: "06", t: "AI Bonus & Community", d: "Bi-monthly cash bonus — help the team, get rewarded. Internal AI sharing culture with occasional Silicon Valley guest visits." },
 ];
